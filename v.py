@@ -3,36 +3,36 @@ from moviepy.editor import VideoFileClip
 import tempfile
 import os
 
-st.title("Découpeur de vidéo simple")
+st.set_page_config(page_title="Découpeur Vidéo", layout="centered")
+st.title("🎬 Découpeur de vidéo simple")
 
 uploaded_file = st.file_uploader("Uploader une vidéo", type=["mp4", "mov", "avi"])
 
 if uploaded_file:
     st.video(uploaded_file)
 
-    # Enregistrer le fichier uploadé dans un fichier temporaire
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
         tmp_file.write(uploaded_file.read())
         tmp_file_path = tmp_file.name
 
-    # Charger la vidéo
     try:
         clip = VideoFileClip(tmp_file_path)
         duration = clip.duration
 
-        st.write("### Sélectionner la plage à découper (en secondes)")
-        start = st.number_input("Début", min_value=0.0, max_value=duration, value=0.0)
-        end = st.number_input("Fin", min_value=0.0, max_value=duration, value=duration)
+        # Limite de sécurité pour Streamlit Cloud (30 sec max)
+        max_clip = min(duration, 30.0)
 
-        if st.button("Rogner la vidéo"):
-            with st.spinner("Traitement en cours..."):
+        st.write("### Sélectionner la plage à découper (max 30 sec)")
+        start = st.number_input("Début", min_value=0.0, max_value=max_clip, value=0.0)
+        end = st.number_input("Fin", min_value=start, max_value=max_clip, value=max_clip)
+
+        if st.button("✂️ Rogner la vidéo"):
+            with st.spinner("Traitement..."):
                 subclip = clip.subclip(start, end)
 
-                # Créer un fichier temporaire de sortie
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as out_file:
                     output_path = out_file.name
 
-                # Écriture de la vidéo
                 subclip.write_videofile(
                     output_path,
                     codec="libx264",
@@ -43,11 +43,10 @@ if uploaded_file:
                     logger=None,
                 )
 
-                # Lire et proposer le téléchargement
                 with open(output_path, "rb") as f:
                     video_bytes = f.read()
 
-                st.success("Vidéo rognée avec succès")
+                st.success("✅ Vidéo rognée avec succès")
                 st.download_button(
                     label="📥 Télécharger le clip",
                     data=video_bytes,
@@ -56,10 +55,14 @@ if uploaded_file:
                 )
 
     except Exception as e:
-        st.error(f"Erreur lors du traitement vidéo : {e}")
+        st.error(f"Erreur : {e}")
+        st.exception(e)
     finally:
-        # Nettoyage des fichiers temporaires
-        clip.close()
-        os.unlink(tmp_file_path)
+        try:
+            clip.close()
+        except:
+            pass
+        if os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
         if os.path.exists("temp-audio.m4a"):
             os.remove("temp-audio.m4a")
