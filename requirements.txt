@@ -1,4 +1,3 @@
 streamlit
-tempfile
 moviepy
 imageio-ffmpeg
